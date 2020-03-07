@@ -102,15 +102,17 @@ void Robot::RobotInit() {
     global_front_left_drive.ConfigSelectedFeedbackSensor(FeedbackDevice::SensorDifference, 1);
     
     // NOTE(Tyler): First set of PIDF constants is for power, and the second set is for the turn
-    global_front_left_drive.Config_kF(0, 0.1);
-    global_front_left_drive.Config_kP(0, 0.0);
-    global_front_left_drive.Config_kI(0, 0.0);
+    global_front_left_drive.Config_kF(0, 0.15);
+    global_front_left_drive.Config_kP(0, 0.05);
+    global_front_left_drive.Config_kI(0, 0.001);
     global_front_left_drive.Config_kD(0, 0.0);
+    global_front_left_drive.ConfigMaxIntegralAccumulator(0, 700);
 
-    global_front_left_drive.Config_kF(1, 0.1);
-    global_front_left_drive.Config_kP(1, 0.0);
-    global_front_left_drive.Config_kI(1, 0.0);
+    global_front_left_drive.Config_kF(1, 0.15);
+    global_front_left_drive.Config_kP(1, 0.05);
+    global_front_left_drive.Config_kI(1, 0.001);
     global_front_left_drive.Config_kD(1, 0.0);
+    global_front_left_drive.ConfigMaxIntegralAccumulator(1, 700);
 
     // global_front_left_drive.ConfigAuxPIDPolarity(true);
 
@@ -139,8 +141,8 @@ void Robot::TeleopPeriodic() {
         global_rear_right_drive.Follow(global_front_left_drive, FollowerType_AuxOutput1);
 
         printf("Drivetrain velocity: %f %f\n", 
-               hi_res_cimcoder_units_to_rpm(global_front_left_drive.GetSelectedSensorVelocity(0)),
-               hi_res_cimcoder_units_to_rpm(global_front_left_drive.GetSelectedSensorVelocity(1)));
+               hi_res_cimcoder_units_to_rpm(global_rear_right_drive.GetSelectedSensorVelocity(0)),
+               hi_res_cimcoder_units_to_rpm(global_rear_right_drive.GetSelectedSensorVelocity(1)));
     }
 
     if(global_gamepad.GetRawButtonPressed(START_BUTTON)) {
