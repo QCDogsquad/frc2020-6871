@@ -15,5 +15,8 @@
   },
   "C_Cpp.default.configurationProvider": "vscode-wpilib",
   "C_Cpp.intelliSenseEngineFallback": "Enabled",
-  "C_Cpp.errorSquiggles": "Enabled"
+  "C_Cpp.errorSquiggles": "Enabled",
+  "files.associations": {
+    "numeric": "cpp"
+  }
 }
