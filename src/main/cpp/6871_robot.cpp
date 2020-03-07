@@ -83,48 +83,32 @@ void Robot::RobotInit() {
     // TODO(Tyler): This might need more setup! like changing PID0 - PID1 to PID0 + PID1 for auxillary PID control
     global_rear_left_drive.Follow(global_front_left_drive);
     global_front_right_drive.Follow(global_rear_right_drive);
-    // global_front_right_drive.SetInverted(true);
-    // global_rear_right_drive.SetInverted(true);
+    global_front_right_drive.SetInverted(true);
+    global_rear_right_drive.SetInverted(true);
+    global_front_left_drive.GetSensorCollection().SetQuadraturePosition(0);
+    global_rear_right_drive.GetSensorCollection().SetQuadraturePosition(0);
     // global_front_left_drive.SetSensorPhase(true);
     // global_rear_right_drive.SetSensorPhase(true);
 
-    global_front_left_drive.SetNeutralMode(NeutralMode::Coast);
-    global_rear_left_drive.SetNeutralMode(NeutralMode::Coast);
-    global_front_right_drive.SetNeutralMode(NeutralMode::Coast);
-    global_rear_right_drive.SetNeutralMode(NeutralMode::Coast);
+    global_front_left_drive.SetNeutralMode(NeutralMode::Brake);
+    global_rear_left_drive.SetNeutralMode(NeutralMode::Brake);
+    global_front_right_drive.SetNeutralMode(NeutralMode::Brake);
+    global_rear_right_drive.SetNeutralMode(NeutralMode::Brake);
 
-    global_front_left_drive.ConfigSelectedFeedbackSensor(FeedbackDevice::QuadEncoder, 0);
-    global_front_left_drive.ConfigRemoteFeedbackFilter(global_rear_right_drive.GetDeviceID(), 
-                                                       RemoteSensorSource::RemoteSensorSource_TalonSRX_SelectedSensor,
-                                                       0);
-    global_front_left_drive.ConfigSensorTerm(SensorTerm::SensorTerm_Diff1, FeedbackDevice::RemoteSensor0);
-    global_front_left_drive.ConfigSensorTerm(SensorTerm::SensorTerm_Diff0, FeedbackDevice::QuadEncoder);
-    global_front_left_drive.ConfigSelectedFeedbackSensor(FeedbackDevice::SensorDifference, 1);
-    
     // NOTE(Tyler): First set of PIDF constants is for power, and the second set is for the turn
-    global_front_left_drive.Config_kF(0, 0.15);
-    global_front_left_drive.Config_kP(0, 0.05);
-    global_front_left_drive.Config_kI(0, 0.001);
+    global_front_left_drive.Config_kF(0, 0.0);
+    global_front_left_drive.Config_kP(0, 0.1);
+    global_front_left_drive.Config_kI(0, 0.0);
     global_front_left_drive.Config_kD(0, 0.0);
-    global_front_left_drive.ConfigMaxIntegralAccumulator(0, 700);
+    // global_front_left_drive.ConfigMaxIntegralAccumulator(0, 700);
 
-    global_front_left_drive.Config_kF(1, 0.15);
-    global_front_left_drive.Config_kP(1, 0.05);
-    global_front_left_drive.Config_kI(1, 0.001);
-    global_front_left_drive.Config_kD(1, 0.0);
-    global_front_left_drive.ConfigMaxIntegralAccumulator(1, 700);
+    global_rear_right_drive.Config_kF(0, 0.0);
+    global_rear_right_drive.Config_kP(0, 0.1);
+    global_rear_right_drive.Config_kI(0, 0.0);
+    global_rear_right_drive.Config_kD(0, 0.0);
+    // global_rear_right_drive.ConfigMaxIntegralAccumulator(0, 700);
 
-    // global_front_left_drive.ConfigAuxPIDPolarity(true);
 
-    // global_rear_right_drive.Config_kF(0, 0.0);
-    // global_rear_right_drive.Config_kP(0, 0.05);
-    // global_rear_right_drive.Config_kI(0, 0.0);
-    // global_rear_right_drive.Config_kD(0, 0.0);
-    
-    // global_rear_right_drive.Config_kF(1, 0.0);
-    // global_rear_right_drive.Config_kP(1, 0.05);
-    // global_rear_right_drive.Config_kI(1, 0.0);
-    // global_rear_right_drive.Config_kD(1, 0.0);
 }
 
 void Robot::TeleopPeriodic() {
@@ -135,14 +119,13 @@ void Robot::TeleopPeriodic() {
         f64 forward_velocity = rpm_to_hi_res_cimcoder_units(1000*square(power));
 
         f64 yaw = global_gamepad.GetRawAxis(RIGHT_X_AXIS);
-        f64 turn_velocity = rpm_to_hi_res_cimcoder_units(1000*square(yaw));
 
-        global_front_left_drive.Set(ControlMode::Velocity, power*forward_velocity, DemandType_AuxPID, turn_velocity);
-        global_rear_right_drive.Follow(global_front_left_drive, FollowerType_AuxOutput1);
+        global_front_left_drive.Set(ControlMode::Velocity, forward_velocity, DemandType_ArbitraryFeedForward, yaw);
+        global_rear_right_drive.Set(ControlMode::Velocity, forward_velocity, DemandType_ArbitraryFeedForward, yaw);
 
         printf("Drivetrain velocity: %f %f\n", 
-               hi_res_cimcoder_units_to_rpm(global_rear_right_drive.GetSelectedSensorVelocity(0)),
-               hi_res_cimcoder_units_to_rpm(global_rear_right_drive.GetSelectedSensorVelocity(1)));
+               hi_res_cimcoder_units_to_rpm(global_front_left_drive.GetSelectedSensorVelocity(0)),
+               hi_res_cimcoder_units_to_rpm(global_rear_right_drive.GetSelectedSensorVelocity(0)));
     }
 
     if(global_gamepad.GetRawButtonPressed(START_BUTTON)) {
