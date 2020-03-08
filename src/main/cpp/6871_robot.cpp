@@ -44,71 +44,79 @@ b32 global_is_intake_raised = true; // The intake starts out raised
 //  rear  left: 3
 // front right: 1
 // rear  right: 2 master
-// TODO(Tyler): Perhaps rename these to master_[SIDE]_drive and slave_[SIDE]_drive
-TalonSRX global_front_left_drive = TalonSRX(4);
-TalonSRX global_rear_left_drive = TalonSRX(3);
-TalonSRX global_front_right_drive = TalonSRX(1);
-TalonSRX global_rear_right_drive = TalonSRX(2);
+TalonSRX global_left_master_drive = TalonSRX(4);
+TalonSRX global_left_slave_drive = TalonSRX(3);
+TalonSRX global_right_slave_drive = TalonSRX(1);
+TalonSRX global_right_master_drive = TalonSRX(2);
 
 TalonSRX global_left_shooter_motor = TalonSRX(7);
 TalonSRX global_right_shooter_motor = TalonSRX(6);
 
 Compressor global_compressor = Compressor();
 
+nt::NetworkTableEntry global_shooter_f_gain;
+nt::NetworkTableEntry global_shooter_p_gain;
+nt::NetworkTableEntry global_shooter_i_gain;
+nt::NetworkTableEntry global_shooter_d_gain;
+
 void Robot::RobotInit() {
     // global_compressor.Start();
     // global_compressor.SetClosedLoopControl(true);
 
-    // Configure talons
+    // Configure shooter
     // -----------------------------------------------------------------------------------------------------
-    // NOTE(Tyler): The PIDF tuning parameters are roughly tuned and could probably be improved
-    global_left_shooter_motor.ConfigSelectedFeedbackSensor(FeedbackDevice::CTRE_MagEncoder_Relative, 0);
+    global_left_shooter_motor.ConfigFactoryDefault();
+    global_left_shooter_motor.ConfigSelectedFeedbackSensor(FeedbackDevice::CTRE_MagEncoder_Relative, 0, 30);
     global_left_shooter_motor.SetSensorPhase(true);
-    global_left_shooter_motor.Config_kF(0, 0.03, 30);
-    global_left_shooter_motor.Config_kP(0, 0.14541, 30);
-    global_left_shooter_motor.Config_kI(0, 0.0005, 30);
+    global_left_shooter_motor.SetNeutralMode(NeutralMode::Brake);
+    global_left_shooter_motor.Config_kF(0, 0.0, 30);
+    global_left_shooter_motor.Config_kP(0, 0.0, 30);
+    global_left_shooter_motor.Config_kI(0, 0.0, 30);
     global_left_shooter_motor.Config_kD(0, 0.0, 30);
     global_left_shooter_motor.ConfigMaxIntegralAccumulator(0, 700, 30);
 
-    global_right_shooter_motor.ConfigSelectedFeedbackSensor(FeedbackDevice::CTRE_MagEncoder_Relative, 0);
+    global_right_shooter_motor.ConfigFactoryDefault();
+    global_right_shooter_motor.ConfigSelectedFeedbackSensor(FeedbackDevice::CTRE_MagEncoder_Relative, 0, 30);
     global_right_shooter_motor.SetSensorPhase(true);
-    global_right_shooter_motor.Config_kF(0, 0.03, 30);
-    global_right_shooter_motor.Config_kP(0, 0.14541, 30);
-    global_right_shooter_motor.Config_kI(0, 0.0005, 30);
+    global_right_shooter_motor.SetNeutralMode(NeutralMode::Brake);
+    global_right_shooter_motor.Config_kF(0, 0.0, 30);
+    global_right_shooter_motor.Config_kP(0, 0.0, 30);
+    global_right_shooter_motor.Config_kI(0, 0.0, 30);
     global_right_shooter_motor.Config_kD(0, 0.0, 30);
-    global_left_shooter_motor.ConfigMaxIntegralAccumulator(0, 700, 30);
+    //  global_right_shooter_motor.ConfigMaxIntegralAccumulator(0, 700, 30);
+
 
     // Configure drivetrain
     // -----------------------------------------------------------------------------------------------------
-    // TODO(Tyler): This might need more setup! like changing PID0 - PID1 to PID0 + PID1 for auxillary PID control
-    global_rear_left_drive.Follow(global_front_left_drive);
-    global_front_right_drive.Follow(global_rear_right_drive);
-    global_front_right_drive.SetInverted(true);
-    global_rear_right_drive.SetInverted(true);
-    global_front_left_drive.GetSensorCollection().SetQuadraturePosition(0);
-    global_rear_right_drive.GetSensorCollection().SetQuadraturePosition(0);
-    // global_front_left_drive.SetSensorPhase(true);
-    // global_rear_right_drive.SetSensorPhase(true);
+    global_left_slave_drive.Follow(global_left_master_drive);
+    global_right_slave_drive.Follow(global_right_master_drive);
+    global_left_master_drive.SetInverted(true);
+    global_left_slave_drive.SetInverted(true);
 
-    global_front_left_drive.SetNeutralMode(NeutralMode::Brake);
-    global_rear_left_drive.SetNeutralMode(NeutralMode::Brake);
-    global_front_right_drive.SetNeutralMode(NeutralMode::Brake);
-    global_rear_right_drive.SetNeutralMode(NeutralMode::Brake);
+    global_left_master_drive.SetNeutralMode(NeutralMode::Brake);
+    global_left_slave_drive.SetNeutralMode(NeutralMode::Brake);
+    global_right_master_drive.SetNeutralMode(NeutralMode::Brake);
+    global_right_slave_drive.SetNeutralMode(NeutralMode::Brake);
 
     // NOTE(Tyler): First set of PIDF constants is for power, and the second set is for the turn
-    global_front_left_drive.Config_kF(0, 0.0);
-    global_front_left_drive.Config_kP(0, 0.1);
-    global_front_left_drive.Config_kI(0, 0.0);
-    global_front_left_drive.Config_kD(0, 0.0);
-    // global_front_left_drive.ConfigMaxIntegralAccumulator(0, 700);
+    global_left_master_drive.Config_kF(0, 0.0);
+    global_left_master_drive.Config_kP(0, 0.1);
+    global_left_master_drive.Config_kI(0, 0.0);
+    global_left_master_drive.Config_kD(0, 0.0);
+    // global_left_master_drive.ConfigMaxIntegralAccumulator(0, 700);
 
-    global_rear_right_drive.Config_kF(0, 0.0);
-    global_rear_right_drive.Config_kP(0, 0.1);
-    global_rear_right_drive.Config_kI(0, 0.0);
-    global_rear_right_drive.Config_kD(0, 0.0);
-    // global_rear_right_drive.ConfigMaxIntegralAccumulator(0, 700);
+    global_right_master_drive.Config_kF(0, 0.0);
+    global_right_master_drive.Config_kP(0, 0.1);
+    global_right_master_drive.Config_kI(0, 0.0);
+    global_right_master_drive.Config_kD(0, 0.0);
+    // global_right_master_drive.ConfigMaxIntegralAccumulator(0, 700);
 
-
+    nt::NetworkTableInstance table_instance = nt::NetworkTableInstance::GetDefault();
+    std::shared_ptr<nt::NetworkTable> table = table_instance.GetTable("tuning_table");
+    global_shooter_f_gain = table->GetEntry("f_gain");
+    global_shooter_p_gain = table->GetEntry("p_gain");
+    global_shooter_i_gain = table->GetEntry("i_gain");
+    global_shooter_d_gain = table->GetEntry("d_gain");
 }
 
 void Robot::TeleopPeriodic() {
@@ -116,18 +124,42 @@ void Robot::TeleopPeriodic() {
     // -----------------------------------------------------------------------------------------------------
     {
         f64 power = global_gamepad.GetRawAxis(RIGHT_Y_AXIS);
-        f64 forward_velocity = rpm_to_hi_res_cimcoder_units(1000*square(power));
 
         f64 yaw = global_gamepad.GetRawAxis(RIGHT_X_AXIS);
 
-        global_front_left_drive.Set(ControlMode::Velocity, forward_velocity, DemandType_ArbitraryFeedForward, yaw);
-        global_rear_right_drive.Set(ControlMode::Velocity, forward_velocity, DemandType_ArbitraryFeedForward, yaw);
+        global_left_master_drive.Set(ControlMode::PercentOutput, power, DemandType_ArbitraryFeedForward, -yaw);
+        global_right_master_drive.Set(ControlMode::PercentOutput, power, DemandType_ArbitraryFeedForward, yaw);
 
-        printf("Drivetrain velocity: %f %f\n", 
-               hi_res_cimcoder_units_to_rpm(global_front_left_drive.GetSelectedSensorVelocity(0)),
-               hi_res_cimcoder_units_to_rpm(global_rear_right_drive.GetSelectedSensorVelocity(0)));
+        // printf("Drivetrain velocity: %f %f\n", 
+        //        hi_res_cimcoder_units_to_rpm(global_left_master_drive.GetSelectedSensorVelocity(0)),
+        //        hi_res_cimcoder_units_to_rpm(global_right_master_drive.GetSelectedSensorVelocity(0)));
     }
 
+    // Control the shooter
+    // -----------------------------------------------------------------------------------------------------
+    {
+        global_left_shooter_motor.Config_kF(0, global_shooter_f_gain.GetDouble(0.0), 30);
+        global_left_shooter_motor.Config_kP(0, global_shooter_p_gain.GetDouble(0.0), 30);
+        global_left_shooter_motor.Config_kI(0, global_shooter_i_gain.GetDouble(0.0), 30);
+        global_left_shooter_motor.Config_kD(0, global_shooter_d_gain.GetDouble(0.0), 30);
+
+        global_right_shooter_motor.Config_kF(0, global_shooter_f_gain.GetDouble(0.0), 30);
+        global_right_shooter_motor.Config_kP(0, global_shooter_p_gain.GetDouble(0.0), 30);
+        global_right_shooter_motor.Config_kI(0, global_shooter_i_gain.GetDouble(0.0), 30);
+        global_right_shooter_motor.Config_kD(0, global_shooter_d_gain.GetDouble(0.0), 30);
+
+        f64 shooter_power = global_gamepad.GetRawAxis(RIGHT_TRIGGER);
+        f64 velocity = rpm_to_ctre_mag_units(shooter_power * 2800);
+        global_left_shooter_motor.Set(ControlMode::Velocity, -velocity);
+        global_right_shooter_motor.Set(ControlMode::Velocity, velocity);
+
+        printf("Shooter velocity: %f %f\n", 
+            ctre_mag_units_to_rpm(global_left_shooter_motor.GetSelectedSensorVelocity(0)),
+            ctre_mag_units_to_rpm(global_right_shooter_motor.GetSelectedSensorVelocity(0)));
+    }
+
+    // Miscellaneous other controls
+    // -----------------------------------------------------------------------------------------------------
     if(global_gamepad.GetRawButtonPressed(START_BUTTON)) {
         global_is_intake_toggled = !global_is_intake_toggled;
     }
@@ -153,21 +185,6 @@ void Robot::TeleopPeriodic() {
         global_uptake_motor.Set(ControlMode::PercentOutput, -1.0);
     } else {
         global_uptake_motor.Set(ControlMode::PercentOutput, 0.0);
-    }
-
-
-    // Control the shooter
-    // -----------------------------------------------------------------------------------------------------
-    {
-
-        f64 shooter_power = global_gamepad.GetRawAxis(RIGHT_TRIGGER);
-        f64 velocity = rpm_to_ctre_mag_units(shooter_power * 4600);
-        global_left_shooter_motor.Set(ControlMode::Velocity, -velocity);
-        global_right_shooter_motor.Set(ControlMode::Velocity, velocity);
-
-        // printf("Shooter velocity: %f %f\n", 
-        //     global_left_shooter_motor.GetSelectedSensorVelocity()/rpm_to_encoder_units_per_100ms,
-        //     global_right_shooter_motor.GetSelectedSensorVelocity()/rpm_to_encoder_units_per_100ms);
     }
 }
 
