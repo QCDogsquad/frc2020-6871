@@ -115,12 +115,23 @@ void Robot::RobotInit() {
     nt::NetworkTableInstance table_instance = nt::NetworkTableInstance::GetDefault();
     std::shared_ptr<nt::NetworkTable> table = table_instance.GetTable("tuning_table");
     char *prefix = "shooter";
-    char buffer[32];
-    snprintf(buffer, sizeof(buffer), "%s_f_gain");
-    global_shooter_f_gain = table->GetEntry("f_gain");
-    global_shooter_p_gain = table->GetEntry("p_gain");
-    global_shooter_i_gain = table->GetEntry("i_gain");
-    global_shooter_d_gain = table->GetEntry("d_gain");
+    {
+        char buffer[32];
+        snprintf(buffer, sizeof(buffer), "%s_f_gain", prefix);
+        global_shooter_f_gain = table->GetEntry(buffer);
+    } {
+        char buffer[32];
+        snprintf(buffer, sizeof(buffer), "%s_p_gain", prefix);
+        global_shooter_p_gain = table->GetEntry(buffer);
+    } {
+        char buffer[32];
+        snprintf(buffer, sizeof(buffer), "%s_i_gain", prefix);
+        global_shooter_i_gain = table->GetEntry(buffer);
+    } {
+        char buffer[32];
+        snprintf(buffer, sizeof(buffer), "%s_d_gain", prefix);
+        global_shooter_d_gain = table->GetEntry(buffer);
+    }
 }
 
 inline void set_shooter_percent_of_max_rpm(f64 power) {
