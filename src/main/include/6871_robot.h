@@ -50,6 +50,11 @@ typedef double f64;
 #define LEFT_STICK_BUTTON 9
 #define RIGHT_STICK_BUTTON 10
 
+#define POV_UP 0
+#define POV_RIGHT 90
+#define POV_DOWN 180
+#define POV_LEFT 270
+
 struct Robot : public frc::TimedRobot {
     void RobotInit();
     void TeleopPeriodic();

@@ -18,6 +18,7 @@
 #include <frc/drive/DifferentialDrive.h>
 #include <frc/Joystick.h>
 #include <frc/DoubleSolenoid.h>
+#include <frc/DigitalInput.h>
 #include <frc/Compressor.h>
 
 #include <networktables/NetworkTable.h>
@@ -33,6 +34,9 @@
 #define square(value) ((value)*(value))
 
 Joystick global_gamepad = Joystick(0);
+
+
+Compressor global_compressor = Compressor();
 
 VictorSPX global_intake_motor = VictorSPX(3);
 DoubleSolenoid global_intake_solenoid = DoubleSolenoid(4, 3);
@@ -52,39 +56,39 @@ TalonSRX global_right_master_drive = TalonSRX(2);
 TalonSRX global_left_shooter_motor = TalonSRX(7);
 TalonSRX global_right_shooter_motor = TalonSRX(6);
 
-Compressor global_compressor = Compressor();
-
 nt::NetworkTableEntry global_shooter_f_gain;
 nt::NetworkTableEntry global_shooter_p_gain;
 nt::NetworkTableEntry global_shooter_i_gain;
 nt::NetworkTableEntry global_shooter_d_gain;
 
+VictorSPX global_control_panel_spinner = VictorSPX(2);
+
+VictorSPX global_winch_motor = VictorSPX(4);
+DoubleSolenoid global_lift_pistons = DoubleSolenoid(2, 1);
+DigitalInput global_lift_limit_switch = DigitalInput(0);
+b32 global_lift_state;
+
 void Robot::RobotInit() {
-    // global_compressor.Start();
-    // global_compressor.SetClosedLoopControl(true);
+    global_compressor.Start();
+    global_compressor.SetClosedLoopControl(true);
 
     // Configure shooter
     // -----------------------------------------------------------------------------------------------------
-    global_left_shooter_motor.ConfigFactoryDefault();
-    global_left_shooter_motor.ConfigSelectedFeedbackSensor(FeedbackDevice::CTRE_MagEncoder_Relative, 0, 30);
+    TalonSRXConfiguration shooter_config = TalonSRXConfiguration();
+    shooter_config.slot0.kF = 0.0;
+    shooter_config.slot0.kP = 0.1;
+    shooter_config.slot0.kI = 0.0;
+    shooter_config.slot0.kD = 0.0;
+    shooter_config.slot0.maxIntegralAccumulator = 700;
+    shooter_config.primaryPID.selectedFeedbackSensor = FeedbackDevice::CTRE_MagEncoder_Relative;
+
     global_left_shooter_motor.SetSensorPhase(true);
     global_left_shooter_motor.SetNeutralMode(NeutralMode::Brake);
-    global_left_shooter_motor.Config_kF(0, 0.0, 30);
-    global_left_shooter_motor.Config_kP(0, 0.0, 30);
-    global_left_shooter_motor.Config_kI(0, 0.0, 30);
-    global_left_shooter_motor.Config_kD(0, 0.0, 30);
-    global_left_shooter_motor.ConfigMaxIntegralAccumulator(0, 700, 30);
+    global_left_shooter_motor.ConfigAllSettings(shooter_config);
 
-    global_right_shooter_motor.ConfigFactoryDefault();
-    global_right_shooter_motor.ConfigSelectedFeedbackSensor(FeedbackDevice::CTRE_MagEncoder_Relative, 0, 30);
     global_right_shooter_motor.SetSensorPhase(true);
     global_right_shooter_motor.SetNeutralMode(NeutralMode::Brake);
-    global_right_shooter_motor.Config_kF(0, 0.0, 30);
-    global_right_shooter_motor.Config_kP(0, 0.0, 30);
-    global_right_shooter_motor.Config_kI(0, 0.0, 30);
-    global_right_shooter_motor.Config_kD(0, 0.0, 30);
-    //  global_right_shooter_motor.ConfigMaxIntegralAccumulator(0, 700, 30);
-
+    global_right_shooter_motor.ConfigAllSettings(shooter_config);
 
     // Configure drivetrain
     // -----------------------------------------------------------------------------------------------------
@@ -98,25 +102,49 @@ void Robot::RobotInit() {
     global_right_master_drive.SetNeutralMode(NeutralMode::Brake);
     global_right_slave_drive.SetNeutralMode(NeutralMode::Brake);
 
-    // NOTE(Tyler): First set of PIDF constants is for power, and the second set is for the turn
-    global_left_master_drive.Config_kF(0, 0.0);
-    global_left_master_drive.Config_kP(0, 0.1);
-    global_left_master_drive.Config_kI(0, 0.0);
-    global_left_master_drive.Config_kD(0, 0.0);
-    // global_left_master_drive.ConfigMaxIntegralAccumulator(0, 700);
-
-    global_right_master_drive.Config_kF(0, 0.0);
-    global_right_master_drive.Config_kP(0, 0.1);
-    global_right_master_drive.Config_kI(0, 0.0);
-    global_right_master_drive.Config_kD(0, 0.0);
-    // global_right_master_drive.ConfigMaxIntegralAccumulator(0, 700);
+    // TODO(Tyler): Tune the PIDF constants
+    TalonSRXConfiguration drive_config = TalonSRXConfiguration();
+    drive_config.slot0.kF = 0.0;
+    drive_config.slot0.kP = 0.1;
+    drive_config.slot0.kI = 0.0;
+    drive_config.slot0.kD = 0.0;
+    shooter_config.primaryPID.selectedFeedbackSensor = FeedbackDevice::CTRE_MagEncoder_Relative;
+    global_left_master_drive.ConfigAllSettings(drive_config);
+    global_right_master_drive.ConfigAllSettings(drive_config);
 
     nt::NetworkTableInstance table_instance = nt::NetworkTableInstance::GetDefault();
     std::shared_ptr<nt::NetworkTable> table = table_instance.GetTable("tuning_table");
+    char *prefix = "shooter";
+    char buffer[32];
+    snprintf(buffer, sizeof(buffer), "%s_f_gain");
     global_shooter_f_gain = table->GetEntry("f_gain");
     global_shooter_p_gain = table->GetEntry("p_gain");
     global_shooter_i_gain = table->GetEntry("i_gain");
     global_shooter_d_gain = table->GetEntry("d_gain");
+}
+
+inline void set_shooter_percent_of_max_rpm(f64 power) {
+    f64 velocity = rpm_to_ctre_mag_units(power * 2800);
+    global_left_shooter_motor.Set(ControlMode::Velocity, -velocity);
+    global_right_shooter_motor.Set(ControlMode::Velocity, velocity);
+}
+
+inline f64 
+get_average_shooter_speed() {
+    f64 result = (global_left_shooter_motor.GetSelectedSensorVelocity(0) + global_right_shooter_motor.GetSelectedSensorVelocity(0)) / 2.0;
+    return(result);
+}
+
+inline void 
+set_motor_power_and_direction_by_buttons(BaseMotorController *motor, f64 power, 
+                                              u32 forward_button, u32 reverse_button) {
+    if(global_gamepad.GetRawButton(forward_button)) {
+        motor->Set(ControlMode::PercentOutput, power);
+    } else if(global_gamepad.GetRawButton(reverse_button)) {
+        motor->Set(ControlMode::PercentOutput, -power);
+    } else {
+        motor->Set(ControlMode::PercentOutput, 0.0);
+    }
 }
 
 void Robot::TeleopPeriodic() {
@@ -149,9 +177,7 @@ void Robot::TeleopPeriodic() {
         global_right_shooter_motor.Config_kD(0, global_shooter_d_gain.GetDouble(0.0), 30);
 
         f64 shooter_power = global_gamepad.GetRawAxis(RIGHT_TRIGGER);
-        f64 velocity = rpm_to_ctre_mag_units(shooter_power * 2800);
-        global_left_shooter_motor.Set(ControlMode::Velocity, -velocity);
-        global_right_shooter_motor.Set(ControlMode::Velocity, velocity);
+        set_shooter_percent_of_max_rpm(shooter_power);
 
         printf("Shooter velocity: %f %f\n", 
             ctre_mag_units_to_rpm(global_left_shooter_motor.GetSelectedSensorVelocity(0)),
@@ -160,7 +186,7 @@ void Robot::TeleopPeriodic() {
 
     // Miscellaneous other controls
     // -----------------------------------------------------------------------------------------------------
-    if(global_gamepad.GetRawButtonPressed(START_BUTTON)) {
+    if(global_gamepad.GetRawButtonPressed(B_BUTTON)) {
         global_is_intake_toggled = !global_is_intake_toggled;
     }
 
@@ -170,7 +196,7 @@ void Robot::TeleopPeriodic() {
         global_intake_motor.Set(ControlMode::PercentOutput, 0.0);
     }
     
-    if(global_gamepad.GetRawButtonPressed(BACK_BUTTON)) {
+    if(global_gamepad.GetRawButtonPressed(Y_BUTTON)) {
         if(global_is_intake_raised) {
             global_intake_solenoid.Set(DoubleSolenoid::kForward);
         } else {
@@ -179,19 +205,44 @@ void Robot::TeleopPeriodic() {
         global_is_intake_raised = !global_is_intake_raised;
     }
 
-    if(global_gamepad.GetRawButton(A_BUTTON)) {
-        global_uptake_motor.Set(ControlMode::PercentOutput, 1.0);
-    } else if(global_gamepad.GetRawButton(B_BUTTON)) {
-        global_uptake_motor.Set(ControlMode::PercentOutput, -1.0);
+    set_motor_power_and_direction_by_buttons(&global_uptake_motor, 1.0, 
+                                             A_BUTTON, B_BUTTON);
+
+    if(global_gamepad.GetPOV() == POV_LEFT) {
+        global_control_panel_spinner.Set(ControlMode::PercentOutput, 0.5);
+    } else if(global_gamepad.GetPOV() == POV_RIGHT) {
+        global_control_panel_spinner.Set(ControlMode::PercentOutput, -0.5);
     } else {
-        global_uptake_motor.Set(ControlMode::PercentOutput, 0.0);
+        global_control_panel_spinner.Set(ControlMode::PercentOutput, 0.0);
     }
+
+
+    if(global_gamepad.GetRawButtonPressed(BACK_BUTTON)) {
+        global_lift_state = !global_lift_state;
+        if(global_lift_state) {
+            global_lift_pistons.Set(DoubleSolenoid::kForward);
+        } else {
+            global_lift_pistons.Set(DoubleSolenoid::kReverse);
+        }
+    }
+    if(!global_lift_state && !global_lift_limit_switch.Get()) {
+        global_winch_motor.Set(ControlMode::PercentOutput, 1.0);
+    } else if(global_gamepad.GetRawButton(START_BUTTON)) {
+        global_winch_motor.Set(ControlMode::PercentOutput, -1.0);
+    } else {
+        global_winch_motor.Set(ControlMode::PercentOutput, 0.0);
+    }
+
+    printf("lift state: %u \n", global_lift_state);
+
+    printf("Limit switch: %u\n", global_lift_limit_switch.Get());
 }
 
 void Robot::AutonomousInit() {
 }
 
 void Robot::AutonomousPeriodic() {
+
 }
 
 #ifndef RUNNING_FRC_TESTS
